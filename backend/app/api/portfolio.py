@@ -25,7 +25,7 @@ def _compute_portfolio(portfolio: PortfolioInput, store: Store) -> PortfolioAnal
             }
         )
     result = compute_portfolio_analytics(positions)
-    return PortfolioAnalytics(portfolio_id=portfolio.id, **result)
+    return PortfolioAnalytics(portfolio_id=portfolio.id, name=portfolio.name, **result)
 
 
 @router.post("", response_model=PortfolioAnalytics)

@@ -52,10 +52,10 @@ async def get_curve(ticker: str, store: Store = Depends(get_store)):
             "name": bond.name,
             "g_spread_bps": analytics.g_spread_bps,
             "z_spread_bps": analytics.z_spread_bps,
-            "carry": analytics.carry,
-            "carry_annualized": analytics.carry_annualized,
-            "roll_down": analytics.roll_down,
-            "theta": analytics.theta,
+            "carry_daily": analytics.carry_daily,
+            "carry_annual": analytics.carry_annual,
+            "roll_daily": analytics.roll_daily,
+            "roll_annual": analytics.roll_annual,
         })
 
         if analytics.g_spread_bps is not None:

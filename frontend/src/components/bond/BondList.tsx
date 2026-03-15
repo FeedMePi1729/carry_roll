@@ -34,8 +34,8 @@ export default function BondList({ bonds, selectedId, onSelect, onDelete }: Prop
           </div>
           <div className="flex items-center gap-3 ml-3">
             <div className="text-right">
-              <div className="text-xs text-gray-500 dark:text-gray-400">Carry (ann.)</div>
-              <div className="text-sm font-mono">{bwa.analytics.carry_annualized.toFixed(2)}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Carry (1y)</div>
+              <div className="text-sm font-mono">{bwa.analytics.carry_annual.toFixed(4)}</div>
             </div>
             <button
               onClick={e => { e.stopPropagation(); onDelete(bwa.bond.id!); }}

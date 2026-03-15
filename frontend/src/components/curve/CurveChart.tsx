@@ -1,6 +1,7 @@
-import Plot from '../PlotlyChart';
 import { useTheme } from '../../context/ThemeContext';
 import { useDebounce } from '../../hooks/useDebounce';
+import { LazyPlot } from '../charts/LazyPlot';
+import { chartColors, chartTheme } from '../../lib/chartTheme';
 import type { CurveAnalytics } from '../../types/models';
 import { moveBondOnCurve } from '../../api/client';
 
@@ -12,6 +13,7 @@ interface Props {
 
 export default function CurveChart({ data, treasuryPoints, onUpdated }: Props) {
   const { theme } = useTheme();
+  const ct = chartTheme(theme === 'dark');
 
   const debouncedMove = useDebounce(async (bondId: string, ytm: number, maturity: number) => {
     try {
@@ -24,50 +26,39 @@ export default function CurveChart({ data, treasuryPoints, onUpdated }: Props) {
 
   const traces: any[] = [];
 
-  // Treasury curve reference line
   if (treasuryPoints && treasuryPoints.length > 0) {
     const sorted = [...treasuryPoints].sort((a, b) => a.tenor - b.tenor);
     traces.push({
       x: sorted.map(p => p.tenor),
       y: sorted.map(p => p.yield_rate * 100),
-      type: 'scatter',
-      mode: 'lines',
-      line: { color: '#94a3b8', width: 1.5, dash: 'dash' },
+      type: 'scatter', mode: 'lines',
+      line: { color: chartColors.muted, width: 1.5, dash: 'dash' },
       name: 'Treasury',
     });
   }
 
-  // Bond points on the curve
   traces.push({
     x: data.points.map(p => p.maturity),
     y: data.points.map(p => p.ytm * 100),
     text: data.points.map(p => p.name),
-    type: 'scatter',
-    mode: 'markers+text',
+    type: 'scatter', mode: 'markers+text',
     textposition: 'top center',
     textfont: { size: 10 },
-    marker: { color: '#6366f1', size: 10, symbol: 'circle' },
+    marker: { color: chartColors.accent, size: 10, symbol: 'circle' },
     name: data.ticker,
   });
 
   return (
     <div>
-      <Plot
+      <LazyPlot
         data={traces}
         layout={{
           height: 350,
           margin: { t: 30, b: 40, l: 50, r: 20 },
-          xaxis: {
-            title: { text: 'Maturity (years)', font: { size: 11 } },
-            gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb',
-          },
-          yaxis: {
-            title: { text: 'YTM (%)', font: { size: 11 } },
-            gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb',
-          },
-          paper_bgcolor: 'rgba(0,0,0,0)',
-          plot_bgcolor: 'rgba(0,0,0,0)',
-          font: { color: theme === 'dark' ? '#d1d5db' : '#374151', size: 11 },
+          xaxis: { title: { text: 'Maturity (years)', font: { size: 11 } }, gridcolor: ct.gridcolor },
+          yaxis: { title: { text: 'YTM (%)',           font: { size: 11 } }, gridcolor: ct.gridcolor },
+          paper_bgcolor: ct.bgColor, plot_bgcolor: ct.bgColor,
+          font: { color: ct.fontColor, size: 11 },
           legend: { orientation: 'h', y: 1.1 },
           dragmode: 'pan',
         }}
@@ -110,3 +101,4 @@ export default function CurveChart({ data, treasuryPoints, onUpdated }: Props) {
     </div>
   );
 }
+

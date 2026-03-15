@@ -23,10 +23,12 @@ export interface BondAnalytics {
   dirty_price: number;
   clean_price: number;
   accrued_interest: number;
-  carry: number;
-  carry_annualized: number;
-  roll_down: number | null;
-  theta: number;
+  carry_daily: number;
+  carry_weekly: number;
+  carry_annual: number;
+  roll_daily: number | null;
+  roll_weekly: number | null;
+  roll_annual: number | null;
   g_spread_bps: number | null;
   z_spread_bps: number | null;
   hazard_rate: number | null;
@@ -62,18 +64,19 @@ export interface PortfolioInput {
 
 export interface PortfolioAnalytics {
   portfolio_id: string;
-  weighted_carry: number;
-  weighted_carry_annualized: number;
-  weighted_roll_down: number | null;
-  weighted_theta: number;
+  name: string;
+  weighted_carry_daily: number;
+  weighted_carry_annual: number;
+  weighted_roll_daily: number | null;
+  weighted_roll_annual: number | null;
   positions: Array<{
     bond_id: string;
     name: string;
     weight: number;
-    carry: number;
-    carry_annualized: number;
-    roll_down: number | null;
-    theta: number;
+    carry_daily: number;
+    carry_annual: number;
+    roll_daily: number | null;
+    roll_annual: number | null;
   }>;
 }
 
@@ -86,10 +89,10 @@ export interface CurveAnalytics {
     name: string;
     g_spread_bps?: number;
     z_spread_bps?: number;
-    carry: number;
-    carry_annualized: number;
-    roll_down?: number;
-    theta: number;
+    carry_daily: number;
+    carry_annual: number;
+    roll_daily?: number;
+    roll_annual?: number;
   }>;
   avg_g_spread_bps: number | null;
   avg_z_spread_bps: number | null;

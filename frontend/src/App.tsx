@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import Header from './components/layout/Header';
 import TabContainer from './components/layout/TabContainer';
 import TreasuryCurveEditor from './components/treasury/TreasuryCurveEditor';
@@ -10,48 +10,28 @@ import PortfolioResults from './components/portfolio/PortfolioResults';
 import CurveSelector from './components/curve/CurveSelector';
 import CurveChart from './components/curve/CurveChart';
 import CurveStats from './components/curve/CurveStats';
-import type { BondWithAnalytics, PortfolioAnalytics, CurveAnalytics, TreasuryCurvePoint } from './types/models';
-import { getBonds, deleteBond as deleteBondApi, deletePortfolio as deletePortfolioApi, getCurveAnalytics, getTreasuryCurve } from './api/client';
+import { useBonds } from './hooks/useBonds';
+import { useTreasury } from './hooks/useTreasury';
+import { useCurve } from './hooks/useCurve';
+import { deletePortfolio as deletePortfolioApi } from './api/client';
+import type { BondWithAnalytics, PortfolioAnalytics } from './types/models';
 
 export default function App() {
-  const [bonds, setBonds] = useState<BondWithAnalytics[]>([]);
+  const { bonds, error: bondsError, addBond, removeBond, refresh: refreshBonds } = useBonds();
+  const treasury = useTreasury();
   const [selectedBondId, setSelectedBondId] = useState<string | null>(null);
   const [portfolios, setPortfolios] = useState<PortfolioAnalytics[]>([]);
   const [selectedTicker, setSelectedTicker] = useState('');
-  const [curveData, setCurveData] = useState<CurveAnalytics | null>(null);
-  const [treasuryPoints, setTreasuryPoints] = useState<TreasuryCurvePoint[]>([]);
+  const { data: curveData, updateCurve, refresh: refreshCurve } = useCurve(selectedTicker);
 
-  const refreshBonds = useCallback(async () => {
-    try {
-      const data = await getBonds();
-      setBonds(data);
-    } catch {}
-  }, []);
-
-  const refreshTreasury = useCallback(async () => {
-    try {
-      const curve = await getTreasuryCurve();
-      if (curve) setTreasuryPoints(curve.points);
-    } catch {}
-  }, []);
-
-  useEffect(() => { refreshBonds(); refreshTreasury(); }, [refreshBonds, refreshTreasury]);
+  const handleTreasuryCurveUpdated = useCallback(() => {
+    refreshBonds();
+    if (selectedTicker) refreshCurve();
+  }, [refreshBonds, refreshCurve, selectedTicker]);
 
   const handleBondCreated = (bwa: BondWithAnalytics) => {
-    setBonds(prev => [...prev, bwa]);
+    addBond(bwa);
     setSelectedBondId(bwa.bond.id!);
-  };
-
-  const handleDeleteBond = async (id: string) => {
-    try {
-      await deleteBondApi(id);
-      setBonds(prev => prev.filter(b => b.bond.id !== id));
-      if (selectedBondId === id) setSelectedBondId(null);
-    } catch {}
-  };
-
-  const handlePortfolioCreated = (p: PortfolioAnalytics) => {
-    setPortfolios(prev => [...prev, p]);
   };
 
   const handleDeletePortfolio = async (id: string) => {
@@ -61,43 +41,24 @@ export default function App() {
     } catch {}
   };
 
-  const handleCurveUpdated = (data: CurveAnalytics) => {
-    setCurveData(data);
-  };
-
-  useEffect(() => {
-    if (selectedTicker) {
-      getCurveAnalytics(selectedTicker).then(setCurveData).catch(() => setCurveData(null));
-    } else {
-      setCurveData(null);
-    }
-  }, [selectedTicker]);
-
-  const handleTreasuryCurveUpdated = () => {
-    refreshBonds();
-    refreshTreasury();
-    if (selectedTicker) {
-      getCurveAnalytics(selectedTicker).then(setCurveData).catch(() => {});
-    }
-  };
-
   const selectedBond = bonds.find(b => b.bond.id === selectedBondId);
 
   const bondPortfolioTab = (
     <div className="space-y-4">
+      {bondsError && <p className="text-red-500 text-sm">{bondsError}</p>}
       <BondForm onBondCreated={handleBondCreated} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <BondList
           bonds={bonds}
           selectedId={selectedBondId}
           onSelect={setSelectedBondId}
-          onDelete={handleDeleteBond}
+          onDelete={removeBond}
         />
         {selectedBond && <BondResults data={selectedBond} />}
       </div>
       <hr className="border-gray-200 dark:border-gray-700" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PortfolioBuilder bonds={bonds} onPortfolioCreated={handlePortfolioCreated} />
+        <PortfolioBuilder bonds={bonds} onPortfolioCreated={p => setPortfolios(prev => [...prev, p])} />
         <div className="space-y-3">
           {portfolios.map(p => (
             <PortfolioResults key={p.portfolio_id} portfolio={p} onDelete={handleDeletePortfolio} />
@@ -112,11 +73,7 @@ export default function App() {
       <CurveSelector selected={selectedTicker} onSelect={setSelectedTicker} />
       {curveData && (
         <>
-          <CurveChart
-            data={curveData}
-            treasuryPoints={treasuryPoints}
-            onUpdated={handleCurveUpdated}
-          />
+          <CurveChart data={curveData} treasuryPoints={treasury.points} onUpdated={updateCurve} />
           <CurveStats data={curveData} />
         </>
       )}
@@ -137,7 +94,14 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Header />
       <div className="max-w-7xl mx-auto px-4 py-4">
-        <TreasuryCurveEditor onCurveUpdated={handleTreasuryCurveUpdated} />
+        <TreasuryCurveEditor
+          points={treasury.points}
+          isSaving={treasury.isSaving}
+          isRefreshing={treasury.isRefreshing}
+          onSave={treasury.save}
+          onRefreshFromLive={treasury.refreshFromLive}
+          onCurveUpdated={handleTreasuryCurveUpdated}
+        />
         <TabContainer
           tabs={[
             { label: 'Bond / Portfolio', content: bondPortfolioTab },

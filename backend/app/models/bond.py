@@ -33,10 +33,12 @@ class BondAnalytics(BaseModel):
     dirty_price: float
     clean_price: float
     accrued_interest: float
-    carry: float
-    carry_annualized: float
-    roll_down: Optional[float] = None
-    theta: float
+    carry_daily: float
+    carry_weekly: float
+    carry_annual: float
+    roll_daily: Optional[float] = None
+    roll_weekly: Optional[float] = None
+    roll_annual: Optional[float] = None
     g_spread_bps: Optional[float] = None
     z_spread_bps: Optional[float] = None
     hazard_rate: Optional[float] = None

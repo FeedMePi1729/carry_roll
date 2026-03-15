@@ -10,7 +10,6 @@ from app.engine.hazard import compute_hazard_rate, compute_survival_curve
 from app.engine.pricing import price_bond
 from app.engine.roll_down import compute_roll_down
 from app.engine.spreads import compute_g_spread, compute_z_spread
-from app.engine.theta import compute_theta
 from app.models.bond import BondAnalytics, BondInput, BondWithAnalytics
 from app.store.memory import Store, get_store
 
@@ -32,15 +31,18 @@ def compute_bond_analytics(
         settle, mat, bond.coupon, bond.face_value, bond.ytm, bond.frequency, bond.day_count
     )
 
-    market_price = bond.market_price if bond.market_price is not None else pricing["dirty_price"]
+    # market_price from user is the clean (quoted) price; z-spread solver needs the dirty price
+    if bond.market_price is not None:
+        market_price = bond.market_price + pricing["accrued_interest"]
+    else:
+        market_price = pricing["dirty_price"]
 
     carry_result = compute_carry(
         pricing["dirty_price"], bond.coupon, bond.face_value, bond.repo_rate, settle, bond.day_count
     )
-
-    theta = compute_theta(
-        settle, mat, bond.coupon, bond.face_value, bond.ytm, bond.frequency, bond.day_count
-    )
+    carry_annual = carry_result["carry_annualized"]
+    carry_daily = carry_annual / 365
+    carry_weekly = carry_annual * 7 / 365
 
     g_spread_bps = compute_g_spread(bond.ytm, settle, mat, bond.day_count, treasury_pts)
 
@@ -49,11 +51,19 @@ def compute_bond_analytics(
         treasury_pts,
     )
 
-    spread_for_roll = (g_spread_bps / 10000) if g_spread_bps is not None else 0.0
-    roll_down = compute_roll_down(
-        settle, mat, bond.coupon, bond.face_value, bond.ytm, bond.frequency, bond.day_count,
+    spread_for_roll = (z_spread_bps / 10000) if z_spread_bps is not None else (
+        (g_spread_bps / 10000) if g_spread_bps is not None else 0.0
+    )
+    roll_down_90 = compute_roll_down(
+        settle, mat, bond.coupon, bond.face_value, bond.frequency, bond.day_count,
         treasury_pts, spread_for_roll,
     )
+    if roll_down_90 is not None:
+        roll_daily = roll_down_90 / 90
+        roll_weekly = roll_down_90 * 7 / 90
+        roll_annual = roll_down_90 * 365 / 90
+    else:
+        roll_daily = roll_weekly = roll_annual = None
 
     spread_for_hazard = z_spread_bps if z_spread_bps is not None else g_spread_bps
     hazard_rate = compute_hazard_rate(spread_for_hazard, bond.recovery_rate)
@@ -65,10 +75,12 @@ def compute_bond_analytics(
         dirty_price=pricing["dirty_price"],
         clean_price=pricing["clean_price"],
         accrued_interest=pricing["accrued_interest"],
-        carry=carry_result["carry"],
-        carry_annualized=carry_result["carry_annualized"],
-        roll_down=roll_down,
-        theta=theta,
+        carry_daily=carry_daily,
+        carry_weekly=carry_weekly,
+        carry_annual=carry_annual,
+        roll_daily=roll_daily,
+        roll_weekly=roll_weekly,
+        roll_annual=roll_annual,
         g_spread_bps=g_spread_bps,
         z_spread_bps=z_spread_bps,
         hazard_rate=hazard_rate,

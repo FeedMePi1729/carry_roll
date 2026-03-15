@@ -1,105 +1,69 @@
-import Plot from '../PlotlyChart';
 import { useTheme } from '../../context/ThemeContext';
+import { LazyPlot } from '../charts/LazyPlot';
+import { StatCard } from '../ui/StatCard';
+import { fmt } from '../../lib/formatters';
+import { chartColors, chartTheme } from '../../lib/chartTheme';
 import type { BondWithAnalytics } from '../../types/models';
 
 interface Props {
   data: BondWithAnalytics;
 }
 
-function fmt(v: number | null | undefined, decimals = 4): string {
-  if (v == null) return 'N/A';
-  return v.toFixed(decimals);
-}
-
 export default function BondResults({ data }: Props) {
   const { theme } = useTheme();
+  const ct = chartTheme(theme === 'dark');
   const { bond, analytics: a } = data;
-
-  const card = "bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3";
-  const statLabel = "text-xs text-gray-500 dark:text-gray-400";
-  const statValue = "text-sm font-mono font-medium";
 
   return (
     <div className="space-y-3">
       <h4 className="text-sm font-semibold">{bond.name} {bond.ticker ? `(${bond.ticker})` : ''}</h4>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className={card}>
-          <div className={statLabel}>Dirty Price</div>
-          <div className={statValue}>{fmt(a.dirty_price)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>Clean Price</div>
-          <div className={statValue}>{fmt(a.clean_price)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>Accrued Interest</div>
-          <div className={statValue}>{fmt(a.accrued_interest)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>YTM</div>
-          <div className={statValue}>{(bond.ytm * 100).toFixed(2)}%</div>
-        </div>
+        <StatCard label="Dirty Price"      value={fmt(a.dirty_price)} />
+        <StatCard label="Clean Price"      value={fmt(a.clean_price)} />
+        <StatCard label="Accrued Interest" value={fmt(a.accrued_interest)} />
+        <StatCard label="YTM"              value={`${(bond.ytm * 100).toFixed(2)}%`} />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className={card}>
-          <div className={statLabel}>Carry (daily)</div>
-          <div className={statValue}>{fmt(a.carry, 6)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>Carry (ann.)</div>
-          <div className={statValue}>{fmt(a.carry_annualized)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>Roll-Down (3m)</div>
-          <div className={statValue}>{fmt(a.roll_down)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>Theta (1d)</div>
-          <div className={statValue}>{fmt(a.theta, 6)}</div>
-        </div>
+        <StatCard label="Carry (1d)" value={fmt(a.carry_daily, 6)} />
+        <StatCard label="Carry (1w)" value={fmt(a.carry_weekly, 5)} />
+        <StatCard label="Carry (1y)" value={fmt(a.carry_annual)} />
+        <StatCard label="C+R (1y)"   value={a.roll_annual != null ? fmt(a.carry_annual + a.roll_annual) : 'N/A'} />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className={card}>
-          <div className={statLabel}>G-Spread (bps)</div>
-          <div className={statValue}>{fmt(a.g_spread_bps, 1)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>Z-Spread (bps)</div>
-          <div className={statValue}>{fmt(a.z_spread_bps, 1)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>Hazard Rate</div>
-          <div className={statValue}>{fmt(a.hazard_rate, 6)}</div>
-        </div>
-        <div className={card}>
-          <div className={statLabel}>Repo Rate</div>
-          <div className={statValue}>{(bond.repo_rate * 100).toFixed(2)}%</div>
-        </div>
+        <StatCard label="Roll (1d)" value={fmt(a.roll_daily, 6)} />
+        <StatCard label="Roll (1w)" value={fmt(a.roll_weekly, 5)} />
+        <StatCard label="Roll (1y)" value={fmt(a.roll_annual)} />
+        <StatCard label="C+R (1d)"  value={a.roll_daily != null ? fmt(a.carry_daily + a.roll_daily, 6) : 'N/A'} />
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="G-Spread (bps)" value={fmt(a.g_spread_bps, 1)} />
+        <StatCard label="Z-Spread (bps)" value={fmt(a.z_spread_bps, 1)} />
+        <StatCard label="Hazard Rate"    value={fmt(a.hazard_rate, 6)} />
+        <StatCard label="Repo Rate"      value={`${(bond.repo_rate * 100).toFixed(2)}%`} />
       </div>
 
       {a.survival_probabilities.length > 0 && (
-        <div className={card}>
-          <div className={statLabel + ' mb-2'}>Survival Curve</div>
-          <Plot
+        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Survival Curve</div>
+          <LazyPlot
             data={[{
               x: a.survival_probabilities.map(s => s.t),
               y: a.survival_probabilities.map(s => s.prob * 100),
-              type: 'scatter',
-              mode: 'lines',
-              line: { color: '#6366f1', width: 2 },
+              type: 'scatter', mode: 'lines',
+              line: { color: chartColors.accent, width: 2 },
               name: 'Survival %',
             }]}
             layout={{
               height: 150,
               margin: { t: 5, b: 30, l: 40, r: 10 },
-              xaxis: { title: { text: 'Years', font: { size: 10 } }, gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb' },
-              yaxis: { title: { text: '%', font: { size: 10 } }, range: [0, 105], gridcolor: theme === 'dark' ? '#374151' : '#e5e7eb' },
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              font: { color: theme === 'dark' ? '#d1d5db' : '#374151', size: 10 },
+              xaxis: { title: { text: 'Years', font: { size: 10 } }, gridcolor: ct.gridcolor },
+              yaxis: { title: { text: '%',     font: { size: 10 } }, range: [0, 105], gridcolor: ct.gridcolor },
+              paper_bgcolor: ct.bgColor, plot_bgcolor: ct.bgColor,
+              font: { color: ct.fontColor, size: 10 },
             }}
             config={{ displayModeBar: false }}
             style={{ width: '100%' }}
@@ -108,8 +72,10 @@ export default function BondResults({ data }: Props) {
       )}
 
       {a.cashflows.length > 0 && (
-        <details className={card}>
-          <summary className={statLabel + ' cursor-pointer'}>Cashflow Schedule ({a.cashflows.length} flows)</summary>
+        <details className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+          <summary className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+            Cashflow Schedule ({a.cashflows.length} flows)
+          </summary>
           <table className="w-full text-xs mt-2">
             <thead>
               <tr className="text-left text-gray-500 dark:text-gray-400">

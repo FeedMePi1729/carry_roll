@@ -16,8 +16,9 @@ class PortfolioInput(BaseModel):
 
 class PortfolioAnalytics(BaseModel):
     portfolio_id: UUID
-    weighted_carry: float
-    weighted_carry_annualized: float
-    weighted_roll_down: Optional[float] = None
-    weighted_theta: float
+    name: str = ""
+    weighted_carry_daily: float
+    weighted_carry_annual: float
+    weighted_roll_daily: Optional[float] = None
+    weighted_roll_annual: Optional[float] = None
     positions: list[dict] = []

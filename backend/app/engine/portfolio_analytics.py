@@ -6,11 +6,10 @@ def compute_portfolio_analytics(
     positions: list[dict],  # [{bond_id, weight, analytics: BondAnalytics}]
 ) -> dict:
     """Compute weighted portfolio analytics."""
-    weighted_carry = 0.0
-    weighted_carry_ann = 0.0
-    weighted_theta = 0.0
-    roll_down_values = []
-    has_roll_down = False
+    weighted_carry_daily = 0.0
+    weighted_carry_annual = 0.0
+    roll_daily_values = []
+    roll_annual_values = []
     position_details = []
 
     for pos in positions:
@@ -18,32 +17,28 @@ def compute_portfolio_analytics(
         a: BondAnalytics = pos["analytics"]
         name = pos.get("name", "")
 
-        weighted_carry += w * a.carry
-        weighted_carry_ann += w * a.carry_annualized
-        weighted_theta += w * a.theta
+        weighted_carry_daily += w * a.carry_daily
+        weighted_carry_annual += w * a.carry_annual
 
-        rd = None
-        if a.roll_down is not None:
-            rd = w * a.roll_down
-            roll_down_values.append(rd)
-            has_roll_down = True
+        if a.roll_daily is not None:
+            roll_daily_values.append(w * a.roll_daily)
+        if a.roll_annual is not None:
+            roll_annual_values.append(w * a.roll_annual)
 
         position_details.append({
             "bond_id": str(a.bond_id),
             "name": name,
             "weight": w,
-            "carry": a.carry,
-            "carry_annualized": a.carry_annualized,
-            "roll_down": a.roll_down,
-            "theta": a.theta,
+            "carry_daily": a.carry_daily,
+            "carry_annual": a.carry_annual,
+            "roll_daily": a.roll_daily,
+            "roll_annual": a.roll_annual,
         })
 
-    weighted_roll_down = sum(roll_down_values) if has_roll_down else None
-
     return {
-        "weighted_carry": weighted_carry,
-        "weighted_carry_annualized": weighted_carry_ann,
-        "weighted_roll_down": weighted_roll_down,
-        "weighted_theta": weighted_theta,
+        "weighted_carry_daily": weighted_carry_daily,
+        "weighted_carry_annual": weighted_carry_annual,
+        "weighted_roll_daily": sum(roll_daily_values) if roll_daily_values else None,
+        "weighted_roll_annual": sum(roll_annual_values) if roll_annual_values else None,
         "positions": position_details,
     }

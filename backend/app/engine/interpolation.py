@@ -42,6 +42,12 @@ def bootstrap_zero_curve(
 ) -> list[tuple[float, float]]:
     """Bootstrap zero rates from par treasury yields.
 
+    Densifies the par curve at every coupon period before bootstrapping so
+    that every intermediate coupon time has its own bootstrapped zero rate.
+    Without densification, the zero rate at a coupon time between two input
+    tenors is flat-extrapolated during bootstrapping but interpolated when
+    the curve is consumed, producing repricing errors.
+
     Args:
         par_points: list of (tenor, par_yield) sorted by tenor
         frequency: coupon frequency (default semi-annual)
@@ -49,11 +55,29 @@ def bootstrap_zero_curve(
     Returns:
         list of (tenor, zero_rate) tuples
     """
-    par_points = sorted(par_points, key=lambda p: p[0])
-    zero_rates = []
+    if not par_points:
+        return []
 
-    for i, (tenor, par_yield) in enumerate(par_points):
-        if tenor <= 1.0 / frequency:
+    par_points = sorted(par_points, key=lambda p: p[0])
+    step = 1.0 / frequency
+    max_tenor = par_points[-1][0]
+
+    # Build dense tenor grid at every coupon period, merged with original tenors
+    grid_tenors = set()
+    t = step
+    while t <= max_tenor + 1e-9:
+        grid_tenors.add(round(t * frequency) / frequency)
+        t += step
+    grid_tenors |= {p[0] for p in par_points}
+    all_tenors = sorted(grid_tenors)
+
+    # Interpolate par yields at every grid tenor
+    dense_par = [(t, interpolate_curve(par_points, t)) for t in all_tenors]
+
+    # Bootstrap from the dense par curve
+    zero_rates = []
+    for tenor, par_yield in dense_par:
+        if tenor <= step:
             # For short tenors, par yield ≈ zero rate
             zero_rates.append((tenor, par_yield))
         else:
@@ -65,7 +89,6 @@ def bootstrap_zero_curve(
             pv_coupons = 0.0
             for j in range(1, n_periods):
                 t_j = j / frequency
-                # Interpolate zero rate at t_j
                 z_j = _interp_zero(zero_rates, t_j)
                 pv_coupons += coupon * np.exp(-z_j * t_j)
 

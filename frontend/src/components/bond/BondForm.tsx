@@ -129,8 +129,8 @@ export default function BondForm({ onBondCreated }: Props) {
           <input type="text" inputMode="decimal" value={pct.recovery_rate} onChange={e => updatePct('recovery_rate', e.target.value)} className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Market Price (opt)</label>
-          <input type="number" step="0.01" value={form.market_price ?? ''} onChange={e => set('market_price', e.target.value ? parseFloat(e.target.value) : undefined)} className={inputCls} placeholder="Auto from YTM" />
+          <label className={labelCls}>Market Clean Price (opt)</label>
+          <input type="number" step="0.01" value={form.market_price ?? ''} onChange={e => set('market_price', e.target.value ? parseFloat(e.target.value) : undefined)} className={inputCls} placeholder="Clean price, auto from YTM" />
         </div>
       </div>
 
