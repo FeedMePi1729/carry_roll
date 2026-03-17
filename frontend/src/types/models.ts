@@ -98,3 +98,41 @@ export interface CurveAnalytics {
   avg_z_spread_bps: number | null;
   survival_curve: Array<{ t: number; prob: number }>;
 }
+
+export type DecompositionMode = 'g_spread' | 'yield';
+
+export interface PnLDecompositionRequest {
+  mode: DecompositionMode;
+  horizon_days: number;
+  g_spread_override_bps?: number;
+  ytm_override?: number;
+}
+
+export interface GSpreadDecompositionResult {
+  mode: 'g_spread';
+  carry: number;
+  roll: number;
+  spread_change: number;
+  total: number;
+  p0: number;
+  p_flat: number;
+  pf: number;
+  p1: number;
+  p2: number;
+  cf: number;
+  residual: number;
+}
+
+export interface YieldDecompositionResult {
+  mode: 'yield';
+  carry_incl_roll: number;
+  yield_change: number;
+  total: number;
+  p0: number;
+  p1: number;
+  p2: number;
+  cf: number;
+  residual: number;
+}
+
+export type PnLDecompositionResult = GSpreadDecompositionResult | YieldDecompositionResult;

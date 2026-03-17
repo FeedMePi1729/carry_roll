@@ -6,6 +6,8 @@ import type {
   PortfolioInput,
   PortfolioAnalytics,
   CurveAnalytics,
+  PnLDecompositionRequest,
+  PnLDecompositionResult,
 } from '../types/models';
 
 const api = axios.create({ baseURL: '/api' });
@@ -34,3 +36,7 @@ export const getTickers = () => api.get<string[]>('/curves/tickers').then(r => r
 export const getCurveAnalytics = (ticker: string) => api.get<CurveAnalytics>(`/curves/${ticker}`).then(r => r.data);
 export const moveBondOnCurve = (ticker: string, bondId: string, ytm: number, maturityYears?: number) =>
   api.patch<CurveAnalytics>(`/curves/${ticker}/bond/${bondId}`, { ytm, maturity_years: maturityYears }).then(r => r.data);
+
+// P&L Decomposition
+export const decomposePnl = (bondId: string, request: PnLDecompositionRequest) =>
+  api.post<PnLDecompositionResult>(`/bonds/${bondId}/decompose`, request).then(r => r.data);

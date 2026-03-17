@@ -6,11 +6,18 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.engine.carry import compute_carry
 from app.engine.day_count import year_fraction
+from app.engine.decomposition import decompose_g_spread, decompose_yield
 from app.engine.hazard import compute_hazard_rate, compute_survival_curve
 from app.engine.pricing import price_bond
 from app.engine.roll_down import compute_roll_down
 from app.engine.spreads import compute_g_spread, compute_z_spread
 from app.models.bond import BondAnalytics, BondInput, BondWithAnalytics
+from app.models.decomposition import (
+    DecompositionMode,
+    GSpreadDecompositionResult,
+    PnLDecompositionRequest,
+    YieldDecompositionResult,
+)
 from app.store.memory import Store, get_store
 
 router = APIRouter(prefix="/bonds", tags=["bonds"])
@@ -167,6 +174,42 @@ async def delete_bond(bond_id: UUID, store: Store = Depends(get_store)):
     del store.bonds[bond_id]
     store.bond_analytics.pop(bond_id, None)
     return {"status": "deleted"}
+
+
+@router.post("/{bond_id}/decompose")
+async def decompose_bond_pnl(
+    bond_id: UUID,
+    request: PnLDecompositionRequest,
+    store: Store = Depends(get_store),
+):
+    """Decompose bond P&L into carry, roll, and spread/yield change components."""
+    bond = store.bonds.get(bond_id)
+    if bond is None:
+        raise HTTPException(status_code=404, detail="Bond not found")
+
+    treasury_pts = store.get_treasury_points()
+    settle = date.fromisoformat(bond.settlement_date)
+    mat = date.fromisoformat(bond.maturity_date)
+
+    if request.mode == DecompositionMode.G_SPREAD:
+        g_override = (
+            (request.g_spread_override_bps / 10000)
+            if request.g_spread_override_bps is not None
+            else None
+        )
+        result = await asyncio.to_thread(
+            decompose_g_spread,
+            settle, mat, bond.coupon, bond.face_value, bond.frequency, bond.day_count,
+            bond.ytm, treasury_pts, request.horizon_days, g_override,
+        )
+        return GSpreadDecompositionResult(**result)
+    else:
+        result = await asyncio.to_thread(
+            decompose_yield,
+            settle, mat, bond.coupon, bond.face_value, bond.frequency, bond.day_count,
+            bond.ytm, request.horizon_days, request.ytm_override,
+        )
+        return YieldDecompositionResult(**result)
 
 
 @router.post("/recompute-all")

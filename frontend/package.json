@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/katex": "^0.16.8",
     "axios": "^1.13.6",
+    "katex": "^0.16.38",
     "lodash.debounce": "^4.0.8",
     "plotly.js": "^3.4.0",
     "react": "^19.2.4",

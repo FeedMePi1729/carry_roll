@@ -3,6 +3,7 @@ import { LazyPlot } from '../charts/LazyPlot';
 import { StatCard } from '../ui/StatCard';
 import { fmt } from '../../lib/formatters';
 import { chartColors, chartTheme } from '../../lib/chartTheme';
+import PnLDecomposition from './PnLDecomposition';
 import type { BondWithAnalytics } from '../../types/models';
 
 interface Props {
@@ -70,6 +71,8 @@ export default function BondResults({ data }: Props) {
           />
         </div>
       )}
+
+      <PnLDecomposition bondId={bond.id!} bond={bond} analytics={a} />
 
       {a.cashflows.length > 0 && (
         <details className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">

@@ -10,6 +10,7 @@ import PortfolioResults from './components/portfolio/PortfolioResults';
 import CurveSelector from './components/curve/CurveSelector';
 import CurveChart from './components/curve/CurveChart';
 import CurveStats from './components/curve/CurveStats';
+import DecompositionDocs from './components/docs/DecompositionDocs';
 import { useBonds } from './hooks/useBonds';
 import { useTreasury } from './hooks/useTreasury';
 import { useCurve } from './hooks/useCurve';
@@ -68,6 +69,10 @@ export default function App() {
     </div>
   );
 
+  const methodologyTab = (
+    <DecompositionDocs />
+  );
+
   const curveTab = (
     <div className="space-y-4">
       <CurveSelector selected={selectedTicker} onSelect={setSelectedTicker} />
@@ -106,6 +111,7 @@ export default function App() {
           tabs={[
             { label: 'Bond / Portfolio', content: bondPortfolioTab },
             { label: 'Curves', content: curveTab },
+            { label: 'Methodology', content: methodologyTab },
           ]}
         />
       </div>
