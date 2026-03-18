@@ -15,7 +15,3 @@ def year_fraction(start: date, end: date, convention: DayCountConvention) -> flo
             360 * (end.year - start.year) + 30 * (end.month - start.month) + (d2 - d1)
         ) / 360.0
     raise ValueError(f"Unknown convention: {convention}")
-
-
-def days_between(start: date, end: date) -> int:
-    return (end - start).days

@@ -13,9 +13,6 @@ export interface BondInput {
   ytm: number;
   repo_rate: number;
   g_spread?: number;
-  z_spread?: number;
-  recovery_rate: number;
-  market_price?: number;
 }
 
 export interface BondAnalytics {
@@ -30,9 +27,6 @@ export interface BondAnalytics {
   roll_weekly: number | null;
   roll_annual: number | null;
   g_spread_bps: number | null;
-  z_spread_bps: number | null;
-  hazard_rate: number | null;
-  survival_probabilities: Array<{ t: number; prob: number }>;
   cashflows: Array<{ date: string; amount: number; type: string }>;
 }
 
@@ -88,15 +82,12 @@ export interface CurveAnalytics {
     bond_id: string;
     name: string;
     g_spread_bps?: number;
-    z_spread_bps?: number;
     carry_daily: number;
     carry_annual: number;
     roll_daily?: number;
     roll_annual?: number;
   }>;
   avg_g_spread_bps: number | null;
-  avg_z_spread_bps: number | null;
-  survival_curve: Array<{ t: number; prob: number }>;
 }
 
 export type DecompositionMode = 'g_spread' | 'yield';

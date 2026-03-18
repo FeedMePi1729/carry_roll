@@ -12,8 +12,6 @@ class CurveAnalytics(BaseModel):
     ticker: str
     points: list[dict] = []
     avg_g_spread_bps: Optional[float] = None
-    avg_z_spread_bps: Optional[float] = None
-    survival_curve: list[dict] = []
 
 
 class BondMoveInput(BaseModel):

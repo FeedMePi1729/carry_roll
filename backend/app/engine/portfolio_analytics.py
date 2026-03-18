@@ -1,4 +1,3 @@
-from uuid import UUID
 from app.models.bond import BondAnalytics
 
 

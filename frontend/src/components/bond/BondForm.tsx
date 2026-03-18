@@ -18,7 +18,6 @@ interface PctDisplay {
   coupon: string;
   ytm: string;
   repo_rate: string;
-  recovery_rate: string;
 }
 
 export default function BondForm({ onBondCreated }: Props) {
@@ -35,13 +34,11 @@ export default function BondForm({ onBondCreated }: Props) {
     frequency: 2,
     ytm: 0.045,
     repo_rate: 0.03,
-    recovery_rate: 0.4,
   });
   const [pct, setPct] = useState<PctDisplay>({
     coupon: (0.05 * 100).toFixed(2),
     ytm: (0.045 * 100).toFixed(2),
     repo_rate: (0.03 * 100).toFixed(2),
-    recovery_rate: (0.4 * 100).toFixed(0),
   });
 
   const set = (field: keyof BondInput, value: any) =>
@@ -123,14 +120,6 @@ export default function BondForm({ onBondCreated }: Props) {
             <option value={2}>Semi-Annual</option>
             <option value={4}>Quarterly</option>
           </select>
-        </div>
-        <div>
-          <label className={labelCls}>Recovery Rate (%)</label>
-          <input type="text" inputMode="decimal" value={pct.recovery_rate} onChange={e => updatePct('recovery_rate', e.target.value)} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Market Clean Price (opt)</label>
-          <input type="number" step="0.01" value={form.market_price ?? ''} onChange={e => set('market_price', e.target.value ? parseFloat(e.target.value) : undefined)} className={inputCls} placeholder="Clean price, auto from YTM" />
         </div>
       </div>
 

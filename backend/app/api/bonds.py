@@ -5,12 +5,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.engine.carry import compute_carry
-from app.engine.day_count import year_fraction
 from app.engine.decomposition import decompose_g_spread, decompose_yield
-from app.engine.hazard import compute_hazard_rate, compute_survival_curve
 from app.engine.pricing import price_bond
-from app.engine.roll_down import compute_roll_down
-from app.engine.spreads import compute_g_spread, compute_z_spread
+from app.engine.spreads import compute_g_spread
 from app.models.bond import BondAnalytics, BondInput, BondWithAnalytics
 from app.models.decomposition import (
     DecompositionMode,
@@ -38,12 +35,6 @@ def compute_bond_analytics(
         settle, mat, bond.coupon, bond.face_value, bond.ytm, bond.frequency, bond.day_count
     )
 
-    # market_price from user is the clean (quoted) price; z-spread solver needs the dirty price
-    if bond.market_price is not None:
-        market_price = bond.market_price + pricing["accrued_interest"]
-    else:
-        market_price = pricing["dirty_price"]
-
     carry_result = compute_carry(
         pricing["dirty_price"], bond.coupon, bond.face_value, bond.repo_rate, settle, bond.day_count
     )
@@ -53,29 +44,16 @@ def compute_bond_analytics(
 
     g_spread_bps = compute_g_spread(bond.ytm, settle, mat, bond.day_count, treasury_pts)
 
-    z_spread_bps = compute_z_spread(
-        market_price, settle, mat, bond.coupon, bond.face_value, bond.frequency, bond.day_count,
-        treasury_pts,
-    )
-
-    spread_for_roll = (z_spread_bps / 10000) if z_spread_bps is not None else (
-        (g_spread_bps / 10000) if g_spread_bps is not None else 0.0
-    )
-    roll_down_90 = compute_roll_down(
-        settle, mat, bond.coupon, bond.face_value, bond.frequency, bond.day_count,
-        treasury_pts, spread_for_roll,
-    )
-    if roll_down_90 is not None:
-        roll_daily = roll_down_90 / 90
-        roll_weekly = roll_down_90 * 7 / 90
-        roll_annual = roll_down_90 * 365 / 90
+    if treasury_pts:
+        decomp = decompose_g_spread(
+            settle, mat, bond.coupon, bond.face_value, bond.frequency, bond.day_count,
+            bond.ytm, treasury_pts, horizon_days=1,
+        )
+        roll_daily = decomp["roll"]
+        roll_weekly = roll_daily * 7
+        roll_annual = roll_daily * 365
     else:
         roll_daily = roll_weekly = roll_annual = None
-
-    spread_for_hazard = z_spread_bps if z_spread_bps is not None else g_spread_bps
-    hazard_rate = compute_hazard_rate(spread_for_hazard, bond.recovery_rate)
-    maturity_yrs = year_fraction(settle, mat, bond.day_count)
-    survival = compute_survival_curve(hazard_rate, max_years=maturity_yrs)
 
     return BondAnalytics(
         bond_id=bond.id,
@@ -89,9 +67,6 @@ def compute_bond_analytics(
         roll_weekly=roll_weekly,
         roll_annual=roll_annual,
         g_spread_bps=g_spread_bps,
-        z_spread_bps=z_spread_bps,
-        hazard_rate=hazard_rate,
-        survival_probabilities=survival,
         cashflows=pricing["cashflows"],
     )
 

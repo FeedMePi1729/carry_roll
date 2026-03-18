@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.bonds import compute_bond_analytics
 from app.engine.day_count import year_fraction
-from app.engine.hazard import compute_survival_curve
 from app.models.curve import BondMoveInput, CurveAnalytics
 from app.store.memory import Store, get_store
 
@@ -33,7 +32,7 @@ async def get_curve(ticker: str, store: Store = Depends(get_store)):
 
     treasury_pts = store.get_treasury_points()
     points = []
-    g_spreads, z_spreads, hazard_rates = [], [], []
+    g_spreads = []
 
     for bond_id, bond in bonds_on_curve:
         analytics = store.bond_analytics.get(bond_id)
@@ -51,7 +50,6 @@ async def get_curve(ticker: str, store: Store = Depends(get_store)):
             "bond_id": str(bond_id),
             "name": bond.name,
             "g_spread_bps": analytics.g_spread_bps,
-            "z_spread_bps": analytics.z_spread_bps,
             "carry_daily": analytics.carry_daily,
             "carry_annual": analytics.carry_annual,
             "roll_daily": analytics.roll_daily,
@@ -60,24 +58,14 @@ async def get_curve(ticker: str, store: Store = Depends(get_store)):
 
         if analytics.g_spread_bps is not None:
             g_spreads.append(analytics.g_spread_bps)
-        if analytics.z_spread_bps is not None:
-            z_spreads.append(analytics.z_spread_bps)
-        if analytics.hazard_rate is not None:
-            hazard_rates.append(analytics.hazard_rate)
 
     points.sort(key=lambda p: p["maturity"])
     avg_g = sum(g_spreads) / len(g_spreads) if g_spreads else None
-    avg_z = sum(z_spreads) / len(z_spreads) if z_spreads else None
-    avg_hazard = sum(hazard_rates) / len(hazard_rates) if hazard_rates else None
-    max_mat = max(p["maturity"] for p in points) if points else 10
-    survival = compute_survival_curve(avg_hazard, max_years=max_mat)
 
     return CurveAnalytics(
         ticker=ticker,
         points=points,
         avg_g_spread_bps=avg_g,
-        avg_z_spread_bps=avg_z,
-        survival_curve=survival,
     )
 
 

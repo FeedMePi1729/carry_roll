@@ -23,9 +23,6 @@ class BondInput(BaseModel):
     ytm: float
     repo_rate: float
     g_spread: Optional[float] = None
-    z_spread: Optional[float] = None
-    recovery_rate: float = 0.4
-    market_price: Optional[float] = None
 
 
 class BondAnalytics(BaseModel):
@@ -40,9 +37,6 @@ class BondAnalytics(BaseModel):
     roll_weekly: Optional[float] = None
     roll_annual: Optional[float] = None
     g_spread_bps: Optional[float] = None
-    z_spread_bps: Optional[float] = None
-    hazard_rate: Optional[float] = None
-    survival_probabilities: list[dict] = []
     cashflows: list[dict] = []
 
 

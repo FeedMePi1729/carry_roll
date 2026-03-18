@@ -1,8 +1,5 @@
-import { useTheme } from '../../context/ThemeContext';
-import { LazyPlot } from '../charts/LazyPlot';
 import { StatCard } from '../ui/StatCard';
 import { fmt } from '../../lib/formatters';
-import { chartColors, chartTheme } from '../../lib/chartTheme';
 import PnLDecomposition from './PnLDecomposition';
 import type { BondWithAnalytics } from '../../types/models';
 
@@ -11,8 +8,6 @@ interface Props {
 }
 
 export default function BondResults({ data }: Props) {
-  const { theme } = useTheme();
-  const ct = chartTheme(theme === 'dark');
   const { bond, analytics: a } = data;
 
   return (
@@ -42,35 +37,8 @@ export default function BondResults({ data }: Props) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="G-Spread (bps)" value={fmt(a.g_spread_bps, 1)} />
-        <StatCard label="Z-Spread (bps)" value={fmt(a.z_spread_bps, 1)} />
-        <StatCard label="Hazard Rate"    value={fmt(a.hazard_rate, 6)} />
         <StatCard label="Repo Rate"      value={`${(bond.repo_rate * 100).toFixed(2)}%`} />
       </div>
-
-      {a.survival_probabilities.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Survival Curve</div>
-          <LazyPlot
-            data={[{
-              x: a.survival_probabilities.map(s => s.t),
-              y: a.survival_probabilities.map(s => s.prob * 100),
-              type: 'scatter', mode: 'lines',
-              line: { color: chartColors.accent, width: 2 },
-              name: 'Survival %',
-            }]}
-            layout={{
-              height: 150,
-              margin: { t: 5, b: 30, l: 40, r: 10 },
-              xaxis: { title: { text: 'Years', font: { size: 10 } }, gridcolor: ct.gridcolor },
-              yaxis: { title: { text: '%',     font: { size: 10 } }, range: [0, 105], gridcolor: ct.gridcolor },
-              paper_bgcolor: ct.bgColor, plot_bgcolor: ct.bgColor,
-              font: { color: ct.fontColor, size: 10 },
-            }}
-            config={{ displayModeBar: false }}
-            style={{ width: '100%' }}
-          />
-        </div>
-      )}
 
       <PnLDecomposition bondId={bond.id!} bond={bond} analytics={a} />
 
