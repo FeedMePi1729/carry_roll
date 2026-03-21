@@ -22,7 +22,7 @@ class BondInput(BaseModel):
     frequency: int = 2  # Coupons per year
     ytm: float
     repo_rate: float
-    g_spread: Optional[float] = None
+    z_spread: Optional[float] = None
 
 
 class BondAnalytics(BaseModel):
@@ -30,13 +30,11 @@ class BondAnalytics(BaseModel):
     dirty_price: float
     clean_price: float
     accrued_interest: float
-    carry_daily: float
-    carry_weekly: float
-    carry_annual: float
-    roll_daily: Optional[float] = None
-    roll_weekly: Optional[float] = None
-    roll_annual: Optional[float] = None
-    g_spread_bps: Optional[float] = None
+    carry_1m: float
+    carry_1y: float
+    roll_1m: Optional[float] = None
+    roll_1y: Optional[float] = None
+    z_spread_bps: Optional[float] = None
     cashflows: list[dict] = []
 
 

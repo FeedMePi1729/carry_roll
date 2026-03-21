@@ -16,10 +16,10 @@ export default function PortfolioResults({ portfolio: p, onDelete }: Props) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-        <StatCard label="Wtd Carry (1d)" value={fmt(p.weighted_carry_daily, 6)} />
-        <StatCard label="Wtd Carry (1y)" value={fmt(p.weighted_carry_annual)} />
-        <StatCard label="Wtd Roll (1d)"  value={fmt(p.weighted_roll_daily, 6)} />
-        <StatCard label="Wtd Roll (1y)"  value={fmt(p.weighted_roll_annual)} />
+        <StatCard label="Wtd Carry (1m)" value={fmt(p.weighted_carry_1m, 4)} />
+        <StatCard label="Wtd Carry (1y)" value={fmt(p.weighted_carry_1y)} />
+        <StatCard label="Wtd Roll (1m)"  value={fmt(p.weighted_roll_1m, 4)} />
+        <StatCard label="Wtd Roll (1y)"  value={fmt(p.weighted_roll_1y)} />
       </div>
 
       <table className="w-full text-xs">
@@ -36,8 +36,8 @@ export default function PortfolioResults({ portfolio: p, onDelete }: Props) {
             <tr key={pos.bond_id} className="border-t border-gray-200 dark:border-gray-600">
               <td className="py-1">{pos.name || pos.bond_id.slice(0, 8)}</td>
               <td className="py-1 font-mono">{(pos.weight * 100).toFixed(1)}%</td>
-              <td className="py-1 font-mono">{fmt(pos.carry_annual)}</td>
-              <td className="py-1 font-mono">{fmt(pos.roll_annual)}</td>
+              <td className="py-1 font-mono">{fmt(pos.carry_1y)}</td>
+              <td className="py-1 font-mono">{fmt(pos.roll_1y)}</td>
             </tr>
           ))}
         </tbody>

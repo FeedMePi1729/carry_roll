@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A **Bond Carry/Roll Analytics Dashboard** — a full-stack financial analytics app that decomposes bond P&L into carry (coupon income minus financing cost), roll-down (price change from curve movement), and spread metrics. It uses real-time U.S. Treasury yield curve data from the Massive API.
 
+## Best Practices
+- Whenever you can, spin up subagents to keep the main context window clean
+- Always ask questions if you have any doubts over the specification of the work.
+- Before starting with a prompt, look over the available skills to see what can be applicable.
+- After finishing work, try to update CLAUDE.md with what you have learnt.
+
 ## Commands
 
 ### Frontend (run from `frontend/`)
@@ -73,13 +79,13 @@ The Vite dev server proxies `/api/*` → `http://localhost:8000`, so the fronten
 - **Pricing**: dirty price, clean price, accrued interest; supports ACT/360, ACT/365, 30/360
 - **Carry**: coupon income minus repo financing cost (daily/weekly/annual)
 - **Roll-down**: price change from bond rolling down the curve (90-day and 365-day)
-- **Spreads**: G-spread (to interpolated gov curve), Z-spread (OAS-like)
+- **Spreads**: Z-spread (constant spread to bootstrapped zero curve, calibrated via Brent's method to reproduce observed price)
 - **Credit**: hazard rate and survival probability from Z-spread
 - **Interpolation**: cubic spline on the treasury curve
 - **P&L Decomposition**: exact bond P&L decomposition with two mutually exclusive modes:
-  - **G-Spread Mode** (3 components): carry (time passage at flat yield), roll-down (curve shape benefit), g-spread change (credit repricing). Prices off bootstrapped zero curve + g-spread.
-  - **Yield Mode** (2 components): carry incl. roll-down (time passage), yield change (YTM repricing). Prices at flat YTM.
+  - **Z-Spread Mode** (4 components): carry, pull-to-par, roll-down, spread change. Prices off bootstrapped zero curve + Z-spread (calibrated to market price). Roll-down spread: `z_rd = z_t + (zero(T-dt) - zero(T))`.
+  - **Yield Mode** (4 components): carry, pull-to-par, roll-down (par curve), yield change. Prices at flat YTM.
   - Both modes use full repricing (no duration/convexity approximations) and return exact identities with a residual sanity check.
-  - Users can override the new g-spread or YTM to see scenario P&L, and view time evolution across multiple horizons (1d–1y).
-  - Frontend shows intermediate prices (P₀, P_flat, P_f, P₁, P₂) in a "Show Working" section so users can trace the math.
+  - Users can override the new Z-spread or YTM to see scenario P&L, and view time evolution across multiple horizons (1d–1y).
+  - Frontend shows intermediate prices (P₀, P_ptp, P_rd, P₂) in a "Show Working" section so users can trace the math.
   - Methodology tab (`components/docs/DecompositionDocs.tsx`) documents the math for both modes.

@@ -22,21 +22,19 @@ export default function BondResults({ data }: Props) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Carry (1d)" value={fmt(a.carry_daily, 6)} />
-        <StatCard label="Carry (1w)" value={fmt(a.carry_weekly, 5)} />
-        <StatCard label="Carry (1y)" value={fmt(a.carry_annual)} />
-        <StatCard label="C+R (1y)"   value={a.roll_annual != null ? fmt(a.carry_annual + a.roll_annual) : 'N/A'} />
+        <StatCard label="Carry (1m)" value={fmt(a.carry_1m, 4)} />
+        <StatCard label="Carry (1y)" value={fmt(a.carry_1y)} />
+        <StatCard label="Roll (1m)"  value={fmt(a.roll_1m, 4)} />
+        <StatCard label="Roll (1y)"  value={fmt(a.roll_1y)} />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Roll (1d)" value={fmt(a.roll_daily, 6)} />
-        <StatCard label="Roll (1w)" value={fmt(a.roll_weekly, 5)} />
-        <StatCard label="Roll (1y)" value={fmt(a.roll_annual)} />
-        <StatCard label="C+R (1d)"  value={a.roll_daily != null ? fmt(a.carry_daily + a.roll_daily, 6) : 'N/A'} />
+        <StatCard label="C+R (1m)" value={a.roll_1m != null ? fmt(a.carry_1m + a.roll_1m, 4) : 'N/A'} />
+        <StatCard label="C+R (1y)" value={a.roll_1y != null ? fmt(a.carry_1y + a.roll_1y) : 'N/A'} />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="G-Spread (bps)" value={fmt(a.g_spread_bps, 1)} />
+        <StatCard label="Z-Spread (bps)" value={fmt(a.z_spread_bps, 1)} />
         <StatCard label="Repo Rate"      value={`${(bond.repo_rate * 100).toFixed(2)}%`} />
       </div>
 

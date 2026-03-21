@@ -11,7 +11,7 @@ import type {
   DecompositionMode,
   PnLDecompositionRequest,
   PnLDecompositionResult,
-  GSpreadDecompositionResult,
+  ZSpreadDecompositionResult,
   YieldDecompositionResult,
 } from '../../types/models';
 
@@ -25,14 +25,13 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
   const { theme } = useTheme();
   const ct = chartTheme(theme === 'dark');
 
-  const [mode, setMode] = useState<DecompositionMode>('g_spread');
+  const [mode, setMode] = useState<DecompositionMode>('z_spread');
   const [horizonDays, setHorizonDays] = useState(1);
-  const [gSpreadOverride, setGSpreadOverride] = useState(
-    analytics.g_spread_bps != null ? analytics.g_spread_bps.toFixed(1) : ''
-  );
-  const [ytmOverride, setYtmOverride] = useState(
-    (bond.ytm * 100).toFixed(4)
-  );
+  const [zSpreadOverride, setZSpreadOverride] = useState('');
+  const [ytmOverride, setYtmOverride] = useState('');
+  // Natural roll reference values returned by the last decompose call (horizon-dependent)
+  const [naturalRollZSpread, setNaturalRollZSpread] = useState<number | null>(null);
+  const [naturalRollYtm, setNaturalRollYtm] = useState<number | null>(null);
   const [result, setResult] = useState<PnLDecompositionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeEvolution, setTimeEvolution] = useState<PnLDecompositionResult[] | null>(null);
@@ -47,8 +46,8 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
       mode,
       horizon_days: horizon,
     };
-    if (mode === 'g_spread' && gSpreadOverride !== '') {
-      request.g_spread_override_bps = parseFloat(gSpreadOverride);
+    if (mode === 'z_spread' && zSpreadOverride !== '') {
+      request.z_spread_override_bps = parseFloat(zSpreadOverride);
     }
     if (mode === 'yield' && ytmOverride !== '') {
       request.ytm_override = parseFloat(ytmOverride) / 100;
@@ -61,6 +60,8 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
     try {
       const res = await decomposePnl(bondId, buildRequest(horizonDays));
       setResult(res);
+      if (res.mode === 'z_spread') setNaturalRollZSpread((res as ZSpreadDecompositionResult).z_spread_rd_bps);
+      if (res.mode === 'yield') setNaturalRollYtm((res as YieldDecompositionResult).y_rd_pct);
     } catch (e) {
       console.error(e);
     } finally {
@@ -83,8 +84,8 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
     }
   };
 
-  const isGSpread = (r: PnLDecompositionResult): r is GSpreadDecompositionResult =>
-    r.mode === 'g_spread';
+  const isZSpread = (r: PnLDecompositionResult): r is ZSpreadDecompositionResult =>
+    r.mode === 'z_spread';
 
   const isYield = (r: PnLDecompositionResult): r is YieldDecompositionResult =>
     r.mode === 'yield';
@@ -95,7 +96,7 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
         <h4 className="text-sm font-semibold">P&L Decomposition</h4>
         <span
           className="text-gray-400 dark:text-gray-500 cursor-help"
-          title="Decompose bond P&L into carry, roll-down, and spread/yield change components"
+          title="Decompose bond P&L into carry, pull-to-par, roll-down, and spread/yield change components"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -107,14 +108,14 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
       <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 w-fit">
         <button
           type="button"
-          onClick={() => setMode('g_spread')}
+          onClick={() => setMode('z_spread')}
           className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-            mode === 'g_spread'
+            mode === 'z_spread'
               ? 'bg-indigo-600 text-white'
               : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
           }`}
         >
-          G-Spread (3 components)
+          Z-Spread (4 components)
         </button>
         <button
           type="button"
@@ -125,7 +126,7 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
               : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
           }`}
         >
-          Yield (2 components)
+          Yield (4 components)
         </button>
       </div>
 
@@ -138,36 +139,56 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
             min={1}
             step={1}
             value={horizonDays}
-            onChange={e => setHorizonDays(parseInt(e.target.value) || 1)}
+            onChange={e => {
+              setHorizonDays(parseInt(e.target.value) || 1);
+              setNaturalRollZSpread(null);
+              setNaturalRollYtm(null);
+            }}
             className={inputCls}
             style={{ width: '100px' }}
           />
         </div>
-        {mode === 'g_spread' && (
+        {mode === 'z_spread' && (
           <div>
-            <label className={labelCls}>New G-Spread (bps)</label>
+            <label className={labelCls}>
+              Ending Z-Spread (bps)
+              <span className="ml-1 font-normal text-gray-400 dark:text-gray-500">— blank = natural roll</span>
+            </label>
             <input
               type="number"
               step="0.1"
-              value={gSpreadOverride}
-              onChange={e => setGSpreadOverride(e.target.value)}
-              placeholder={analytics.g_spread_bps != null ? analytics.g_spread_bps.toFixed(1) : ''}
+              value={zSpreadOverride}
+              onChange={e => setZSpreadOverride(e.target.value)}
+              placeholder={
+                naturalRollZSpread != null
+                  ? `${naturalRollZSpread.toFixed(1)} (natural roll)`
+                  : analytics.z_spread_bps != null
+                    ? `${analytics.z_spread_bps.toFixed(1)} (current)`
+                    : 'natural roll'
+              }
               className={inputCls}
-              style={{ width: '140px' }}
+              style={{ width: '180px' }}
             />
           </div>
         )}
         {mode === 'yield' && (
           <div>
-            <label className={labelCls}>New YTM (%)</label>
+            <label className={labelCls}>
+              Ending YTM (%)
+              <span className="ml-1 font-normal text-gray-400 dark:text-gray-500">— blank = natural roll</span>
+            </label>
             <input
               type="number"
               step="0.01"
               value={ytmOverride}
               onChange={e => setYtmOverride(e.target.value)}
-              placeholder={(bond.ytm * 100).toFixed(4)}
+              placeholder={
+                naturalRollYtm != null
+                  ? `${naturalRollYtm.toFixed(4)} (natural roll)`
+                  : `${(bond.ytm * 100).toFixed(4)} (current)`
+              }
               className={inputCls}
-              style={{ width: '140px' }}
+              style={{ width: '180px' }}
             />
           </div>
         )}
@@ -190,10 +211,11 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
           </summary>
         <div className="space-y-3">
           {/* Stat cards */}
-          {isGSpread(result) && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {isZSpread(result) && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <StatCard label="Carry" value={fmt(result.carry, 4)} />
-              <StatCard label="Roll-Down" value={fmt(result.roll, 4)} />
+              <StatCard label="Pull to Par" value={fmt(result.pull_to_par, 4)} />
+              <StatCard label="Roll-Down" value={fmt(result.roll_down, 4)} />
               <StatCard label="Spread Δ" value={fmt(result.spread_change, 4)} />
               <StatCard
                 label="Total"
@@ -203,8 +225,10 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
             </div>
           )}
           {isYield(result) && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Carry (incl. roll)" value={fmt(result.carry_incl_roll, 4)} />
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <StatCard label="Carry" value={fmt(result.carry, 4)} />
+              <StatCard label="Pull to Par" value={fmt(result.pull_to_par, 4)} />
+              <StatCard label="Roll-Down" value={fmt(result.roll_down, 4)} />
               <StatCard label="Yield Δ" value={fmt(result.yield_change, 4)} />
               <StatCard
                 label="Total"
@@ -219,23 +243,21 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
             data={[
               {
                 type: 'waterfall',
-                x: isGSpread(result)
-                  ? ['Carry', 'Roll-Down', 'Spread Δ', 'Total']
-                  : ['Carry (incl. roll)', 'Yield Δ', 'Total'],
-                y: isGSpread(result)
-                  ? [result.carry, result.roll, result.spread_change, result.total]
-                  : [result.carry_incl_roll, result.yield_change, result.total],
-                measure: isGSpread(result)
-                  ? ['relative', 'relative', 'relative', 'total']
-                  : ['relative', 'relative', 'total'],
+                x: isZSpread(result)
+                  ? ['Carry', 'Pull to Par', 'Roll-Down', 'Spread Δ', 'Total']
+                  : ['Carry', 'Pull to Par', 'Roll-Down', 'Yield Δ', 'Total'],
+                y: isZSpread(result)
+                  ? [result.carry, result.pull_to_par, result.roll_down, result.spread_change, result.total]
+                  : [result.carry, result.pull_to_par, result.roll_down, result.yield_change, result.total],
+                measure: ['relative', 'relative', 'relative', 'relative', 'total'],
                 connector: { line: { color: 'rgb(63,63,63)' } },
                 increasing: { marker: { color: chartColors.accent } },
                 decreasing: { marker: { color: chartColors.danger } },
                 totals: { marker: { color: '#22c55e' } },
                 textposition: 'outside',
-                text: isGSpread(result)
-                  ? [result.carry.toFixed(4), result.roll.toFixed(4), result.spread_change.toFixed(4), result.total.toFixed(4)]
-                  : [result.carry_incl_roll.toFixed(4), result.yield_change.toFixed(4), result.total.toFixed(4)],
+                text: isZSpread(result)
+                  ? [result.carry.toFixed(4), result.pull_to_par.toFixed(4), result.roll_down.toFixed(4), result.spread_change.toFixed(4), result.total.toFixed(4)]
+                  : [result.carry.toFixed(4), result.pull_to_par.toFixed(4), result.roll_down.toFixed(4), result.yield_change.toFixed(4), result.total.toFixed(4)],
                 textfont: { size: 9, color: ct.fontColor },
               },
             ]}
@@ -267,57 +289,67 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {isGSpread(result) && (
+                  {isZSpread(result) && (
                     <>
                       <tr className="border-t border-gray-200 dark:border-gray-600">
                         <td className="py-1 font-mono">P&#8320;</td>
                         <td className="py-1 font-mono">{result.p0.toFixed(4)}</td>
-                        <td className="py-1">Current dirty price (gov curve + spread)</td>
+                        <td className="py-1">Current dirty price (gov zero curve + Z-spread, exact)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600">
-                        <td className="py-1 font-mono">P_flat</td>
-                        <td className="py-1 font-mono">{result.p_flat.toFixed(4)}</td>
-                        <td className="py-1">Current dirty price at flat YTM</td>
+                        <td className="py-1 font-mono">P_ptp</td>
+                        <td className="py-1 font-mono">{result.p_ptp.toFixed(4)}</td>
+                        <td className="py-1">Aged dirty price at same Z-spread (price convergence ref)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600">
-                        <td className="py-1 font-mono">P_f</td>
-                        <td className="py-1 font-mono">{result.pf.toFixed(4)}</td>
-                        <td className="py-1">Aged dirty price at flat YTM (carry ref)</td>
-                      </tr>
-                      <tr className="border-t border-gray-200 dark:border-gray-600">
-                        <td className="py-1 font-mono">P&#8321;</td>
-                        <td className="py-1 font-mono">{result.p1.toFixed(4)}</td>
-                        <td className="py-1">Aged at same curve + same spread</td>
+                        <td className="py-1 font-mono">P_rd</td>
+                        <td className="py-1 font-mono">{result.p_rd.toFixed(4)}</td>
+                        <td className="py-1">Aged at natural roll Z-spread ({result.z_spread_rd_bps.toFixed(1)} bps = z_t + Δzero)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600">
                         <td className="py-1 font-mono">P&#8322;</td>
                         <td className="py-1 font-mono">{result.p2.toFixed(4)}</td>
-                        <td className="py-1">Aged at same curve + new spread</td>
+                        <td className="py-1">Aged at final Z-spread (actual ending price)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600">
                         <td className="py-1 font-mono">CF</td>
                         <td className="py-1 font-mono">{result.cf.toFixed(4)}</td>
-                        <td className="py-1">Cash flows in [t, t+dt]</td>
+                        <td className="py-1">Discrete cash flows in (t, t+dt]</td>
+                      </tr>
+                      <tr className="border-t border-gray-200 dark:border-gray-600">
+                        <td className="py-1 font-mono">Accrual</td>
+                        <td className="py-1 font-mono">{result.coupon_income.toFixed(4)}</td>
+                        <td className="py-1">Smooth coupon accrual: c·F·dt</td>
+                      </tr>
+                      <tr className="border-t border-gray-200 dark:border-gray-600">
+                        <td className="py-1 font-mono">Financing</td>
+                        <td className="py-1 font-mono">-{result.financing_cost.toFixed(4)}</td>
+                        <td className="py-1">Repo financing cost: repo·P&#8320;·dt</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50">
                         <td className="py-1 font-mono">Carry</td>
-                        <td className="py-1 font-mono">P_f - P_flat + CF = {result.carry.toFixed(4)}</td>
-                        <td className="py-1">Time passage at flat yield</td>
+                        <td className="py-1 font-mono">Accrual - Financing = {result.carry.toFixed(4)}</td>
+                        <td className="py-1">Net coupon income after financing (c·F·dt - repo·P&#8320;·dt)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50">
-                        <td className="py-1 font-mono">Roll</td>
-                        <td className="py-1 font-mono">(P&#8321; - P&#8320;) - (P_f - P_flat) = {result.roll.toFixed(4)}</td>
-                        <td className="py-1">Richness vs flat yield</td>
+                        <td className="py-1 font-mono">Pull to Par</td>
+                        <td className="py-1 font-mono">(P_ptp - P&#8320;) + CF - Accrual = {result.pull_to_par.toFixed(4)}</td>
+                        <td className="py-1">Pure price convergence toward par (independent of coupon timing)</td>
+                      </tr>
+                      <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50">
+                        <td className="py-1 font-mono">Roll-Down</td>
+                        <td className="py-1 font-mono">P_rd - P_ptp = {result.roll_down.toFixed(4)}</td>
+                        <td className="py-1">Z-spread rolling with zero curve slope</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50">
                         <td className="py-1 font-mono">Spread {'\u0394'}</td>
-                        <td className="py-1 font-mono">P&#8322; - P&#8321; = {result.spread_change.toFixed(4)}</td>
-                        <td className="py-1">Pure spread repricing</td>
+                        <td className="py-1 font-mono">P&#8322; - P_rd = {result.spread_change.toFixed(4)}</td>
+                        <td className="py-1">Extra spread change vs natural roll (0 if no override)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50 font-semibold">
                         <td className="py-1 font-mono">Total</td>
-                        <td className="py-1 font-mono">Carry + Roll + Spread {'\u0394'} = {result.total.toFixed(4)}</td>
-                        <td className="py-1">Exact identity</td>
+                        <td className="py-1 font-mono">P&#8322; - P&#8320; + CF - Financing = {result.total.toFixed(4)}</td>
+                        <td className="py-1">Financed P&L identity</td>
                       </tr>
                     </>
                   )}
@@ -329,34 +361,59 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
                         <td className="py-1">Current dirty price at current YTM</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600">
-                        <td className="py-1 font-mono">P&#8321;</td>
-                        <td className="py-1 font-mono">{result.p1.toFixed(4)}</td>
-                        <td className="py-1">Aged dirty price at current YTM</td>
+                        <td className="py-1 font-mono">P_ptp</td>
+                        <td className="py-1 font-mono">{result.p_ptp.toFixed(4)}</td>
+                        <td className="py-1">Aged dirty price at same YTM (price convergence ref)</td>
+                      </tr>
+                      <tr className="border-t border-gray-200 dark:border-gray-600">
+                        <td className="py-1 font-mono">P_rd</td>
+                        <td className="py-1 font-mono">{result.p_rd.toFixed(4)}</td>
+                        <td className="py-1">Aged at natural roll YTM ({result.y_rd_pct.toFixed(4)}% = tsy at rolled maturity + excess)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600">
                         <td className="py-1 font-mono">P&#8322;</td>
                         <td className="py-1 font-mono">{result.p2.toFixed(4)}</td>
-                        <td className="py-1">Aged dirty price at new YTM</td>
+                        <td className="py-1">Aged at final YTM (actual ending price)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600">
                         <td className="py-1 font-mono">CF</td>
                         <td className="py-1 font-mono">{result.cf.toFixed(4)}</td>
-                        <td className="py-1">Cash flows in [t, t+dt]</td>
+                        <td className="py-1">Discrete cash flows in (t, t+dt]</td>
+                      </tr>
+                      <tr className="border-t border-gray-200 dark:border-gray-600">
+                        <td className="py-1 font-mono">Accrual</td>
+                        <td className="py-1 font-mono">{result.coupon_income.toFixed(4)}</td>
+                        <td className="py-1">Smooth coupon accrual: c·F·dt</td>
+                      </tr>
+                      <tr className="border-t border-gray-200 dark:border-gray-600">
+                        <td className="py-1 font-mono">Financing</td>
+                        <td className="py-1 font-mono">-{result.financing_cost.toFixed(4)}</td>
+                        <td className="py-1">Repo financing cost: repo·P&#8320;·dt</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50">
-                        <td className="py-1 font-mono">Carry (incl. roll)</td>
-                        <td className="py-1 font-mono">P&#8321; - P&#8320; + CF = {result.carry_incl_roll.toFixed(4)}</td>
-                        <td className="py-1">Time passage at flat YTM</td>
+                        <td className="py-1 font-mono">Carry</td>
+                        <td className="py-1 font-mono">Accrual - Financing = {result.carry.toFixed(4)}</td>
+                        <td className="py-1">Net coupon income after financing (c·F·dt - repo·P&#8320;·dt)</td>
+                      </tr>
+                      <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50">
+                        <td className="py-1 font-mono">Pull to Par</td>
+                        <td className="py-1 font-mono">(P_ptp - P&#8320;) + CF - Accrual = {result.pull_to_par.toFixed(4)}</td>
+                        <td className="py-1">Pure price convergence toward par (independent of coupon timing)</td>
+                      </tr>
+                      <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50">
+                        <td className="py-1 font-mono">Roll-Down</td>
+                        <td className="py-1 font-mono">P_rd - P_ptp = {result.roll_down.toFixed(4)}</td>
+                        <td className="py-1">YTM rolling down the par curve</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50">
                         <td className="py-1 font-mono">Yield {'\u0394'}</td>
-                        <td className="py-1 font-mono">P&#8322; - P&#8321; = {result.yield_change.toFixed(4)}</td>
-                        <td className="py-1">Yield change repricing</td>
+                        <td className="py-1 font-mono">P&#8322; - P_rd = {result.yield_change.toFixed(4)}</td>
+                        <td className="py-1">Extra yield change vs natural roll (0 if no override)</td>
                       </tr>
                       <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600/50 font-semibold">
                         <td className="py-1 font-mono">Total</td>
-                        <td className="py-1 font-mono">Carry (incl. roll) + Yield {'\u0394'} = {result.total.toFixed(4)}</td>
-                        <td className="py-1">Exact identity</td>
+                        <td className="py-1 font-mono">P&#8322; - P&#8320; + CF - Financing = {result.total.toFixed(4)}</td>
+                        <td className="py-1">Financed P&L identity</td>
                       </tr>
                     </>
                   )}
@@ -392,26 +449,33 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
             {timeEvolution && (
               <LazyPlot
                 data={
-                  timeEvolution[0].mode === 'g_spread'
+                  timeEvolution[0].mode === 'z_spread'
                     ? [
                         {
                           type: 'bar',
                           x: ['1d', '7d', '30d', '90d', '180d', '1y'],
-                          y: (timeEvolution as GSpreadDecompositionResult[]).map(r => r.carry),
+                          y: (timeEvolution as ZSpreadDecompositionResult[]).map(r => r.carry),
                           name: 'Carry',
                           marker: { color: chartColors.accent },
                         },
                         {
                           type: 'bar',
                           x: ['1d', '7d', '30d', '90d', '180d', '1y'],
-                          y: (timeEvolution as GSpreadDecompositionResult[]).map(r => r.roll),
-                          name: 'Roll',
+                          y: (timeEvolution as ZSpreadDecompositionResult[]).map(r => r.pull_to_par),
+                          name: 'Pull to Par',
+                          marker: { color: '#818cf8' },
+                        },
+                        {
+                          type: 'bar',
+                          x: ['1d', '7d', '30d', '90d', '180d', '1y'],
+                          y: (timeEvolution as ZSpreadDecompositionResult[]).map(r => r.roll_down),
+                          name: 'Roll-Down',
                           marker: { color: chartColors.muted },
                         },
                         {
                           type: 'bar',
                           x: ['1d', '7d', '30d', '90d', '180d', '1y'],
-                          y: (timeEvolution as GSpreadDecompositionResult[]).map(r => r.spread_change),
+                          y: (timeEvolution as ZSpreadDecompositionResult[]).map(r => r.spread_change),
                           name: 'Spread Δ',
                           marker: { color: '#f59e0b' },
                         },
@@ -420,9 +484,23 @@ export default function PnLDecomposition({ bondId, bond, analytics }: Props) {
                         {
                           type: 'bar',
                           x: ['1d', '7d', '30d', '90d', '180d', '1y'],
-                          y: (timeEvolution as YieldDecompositionResult[]).map(r => r.carry_incl_roll),
-                          name: 'Carry (incl. roll)',
+                          y: (timeEvolution as YieldDecompositionResult[]).map(r => r.carry),
+                          name: 'Carry',
                           marker: { color: chartColors.accent },
+                        },
+                        {
+                          type: 'bar',
+                          x: ['1d', '7d', '30d', '90d', '180d', '1y'],
+                          y: (timeEvolution as YieldDecompositionResult[]).map(r => r.pull_to_par),
+                          name: 'Pull to Par',
+                          marker: { color: '#818cf8' },
+                        },
+                        {
+                          type: 'bar',
+                          x: ['1d', '7d', '30d', '90d', '180d', '1y'],
+                          y: (timeEvolution as YieldDecompositionResult[]).map(r => r.roll_down),
+                          name: 'Roll-Down',
+                          marker: { color: chartColors.muted },
                         },
                         {
                           type: 'bar',

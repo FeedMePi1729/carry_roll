@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+from app.api.bonds import recompute_all_bonds
 from app.api.router import api_router
 from app.services.massive import fetch_treasury_curve
 from app.store.memory import store
@@ -20,6 +21,8 @@ async def lifespan(app: FastAPI):
         logger.info("Treasury curve loaded from Massive (%s)", store.treasury_curve.as_of_date)
     except Exception as exc:
         logger.warning("Massive fetch failed (%s) — using default curve", exc)
+    await recompute_all_bonds(store)
+    logger.info("Seeded %d default bonds", len(store.bonds))
     yield
 
 

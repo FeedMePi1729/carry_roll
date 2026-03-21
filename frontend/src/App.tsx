@@ -17,13 +17,24 @@ import { useCurve } from './hooks/useCurve';
 import { deletePortfolio as deletePortfolioApi } from './api/client';
 import type { BondWithAnalytics, PortfolioAnalytics } from './types/models';
 
+const HORIZON_OPTIONS = [
+  { label: 'None', days: 0 },
+  { label: '1d',   days: 1 },
+  { label: '7d',   days: 7 },
+  { label: '30d',  days: 30 },
+  { label: '90d',  days: 90 },
+  { label: '180d', days: 180 },
+  { label: '1y',   days: 365 },
+];
+
 export default function App() {
   const { bonds, error: bondsError, addBond, removeBond, refresh: refreshBonds } = useBonds();
   const treasury = useTreasury();
   const [selectedBondId, setSelectedBondId] = useState<string | null>(null);
   const [portfolios, setPortfolios] = useState<PortfolioAnalytics[]>([]);
   const [selectedTicker, setSelectedTicker] = useState('');
-  const { data: curveData, updateCurve, refresh: refreshCurve } = useCurve(selectedTicker);
+  const [horizonDays, setHorizonDays] = useState(0);
+  const { data: curveData, updateCurve, refresh: refreshCurve } = useCurve(selectedTicker, horizonDays);
 
   const handleTreasuryCurveUpdated = useCallback(() => {
     refreshBonds();
@@ -76,10 +87,37 @@ export default function App() {
   const curveTab = (
     <div className="space-y-4">
       <CurveSelector selected={selectedTicker} onSelect={setSelectedTicker} />
+
+      {/* Horizon selector */}
+      {selectedTicker && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Roll horizon:</span>
+          {HORIZON_OPTIONS.map(opt => (
+            <button
+              key={opt.days}
+              type="button"
+              onClick={() => setHorizonDays(opt.days)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                horizonDays === opt.days
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {curveData && (
         <>
-          <CurveChart data={curveData} treasuryPoints={treasury.points} onUpdated={updateCurve} />
-          <CurveStats data={curveData} />
+          <CurveChart
+            data={curveData}
+            treasuryPoints={treasury.points}
+            horizonDays={horizonDays}
+            onUpdated={updateCurve}
+          />
+          <CurveStats data={curveData} horizonDays={horizonDays} />
         </>
       )}
       {selectedTicker && !curveData && (

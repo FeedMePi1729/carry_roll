@@ -10,7 +10,7 @@ interface UseCurveResult {
   refresh: () => void;
 }
 
-export function useCurve(ticker: string): UseCurveResult {
+export function useCurve(ticker: string, horizonDays = 0): UseCurveResult {
   const [data, setData] = useState<CurveAnalytics | null>(null);
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,11 +25,11 @@ export function useCurve(ticker: string): UseCurveResult {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getCurveAnalytics(ticker)
+    getCurveAnalytics(ticker, horizonDays)
       .then(d  => { if (!cancelled) { setData(d); setLoading(false); } })
       .catch(() => { if (!cancelled) { setData(null); setError('Failed to load curve'); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [ticker, refreshTick]);
+  }, [ticker, horizonDays, refreshTick]);
 
   const updateCurve = useCallback((updated: CurveAnalytics) => setData(updated), []);
   const refresh = useCallback(() => setRefreshTick(t => t + 1), []);

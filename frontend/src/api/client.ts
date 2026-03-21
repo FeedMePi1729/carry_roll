@@ -33,7 +33,8 @@ export const deletePortfolio = (id: string) => api.delete(`/portfolios/${id}`).t
 
 // Curves
 export const getTickers = () => api.get<string[]>('/curves/tickers').then(r => r.data);
-export const getCurveAnalytics = (ticker: string) => api.get<CurveAnalytics>(`/curves/${ticker}`).then(r => r.data);
+export const getCurveAnalytics = (ticker: string, horizonDays = 0) =>
+  api.get<CurveAnalytics>(`/curves/${ticker}`, { params: { horizon_days: horizonDays } }).then(r => r.data);
 export const moveBondOnCurve = (ticker: string, bondId: string, ytm: number, maturityYears?: number) =>
   api.patch<CurveAnalytics>(`/curves/${ticker}/bond/${bondId}`, { ytm, maturity_years: maturityYears }).then(r => r.data);
 

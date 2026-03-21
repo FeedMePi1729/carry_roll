@@ -5,10 +5,10 @@ def compute_portfolio_analytics(
     positions: list[dict],  # [{bond_id, weight, analytics: BondAnalytics}]
 ) -> dict:
     """Compute weighted portfolio analytics."""
-    weighted_carry_daily = 0.0
-    weighted_carry_annual = 0.0
-    roll_daily_values = []
-    roll_annual_values = []
+    weighted_carry_1m = 0.0
+    weighted_carry_1y = 0.0
+    roll_1m_values = []
+    roll_1y_values = []
     position_details = []
 
     for pos in positions:
@@ -16,28 +16,28 @@ def compute_portfolio_analytics(
         a: BondAnalytics = pos["analytics"]
         name = pos.get("name", "")
 
-        weighted_carry_daily += w * a.carry_daily
-        weighted_carry_annual += w * a.carry_annual
+        weighted_carry_1m += w * a.carry_1m
+        weighted_carry_1y += w * a.carry_1y
 
-        if a.roll_daily is not None:
-            roll_daily_values.append(w * a.roll_daily)
-        if a.roll_annual is not None:
-            roll_annual_values.append(w * a.roll_annual)
+        if a.roll_1m is not None:
+            roll_1m_values.append(w * a.roll_1m)
+        if a.roll_1y is not None:
+            roll_1y_values.append(w * a.roll_1y)
 
         position_details.append({
             "bond_id": str(a.bond_id),
             "name": name,
             "weight": w,
-            "carry_daily": a.carry_daily,
-            "carry_annual": a.carry_annual,
-            "roll_daily": a.roll_daily,
-            "roll_annual": a.roll_annual,
+            "carry_1m": a.carry_1m,
+            "carry_1y": a.carry_1y,
+            "roll_1m": a.roll_1m,
+            "roll_1y": a.roll_1y,
         })
 
     return {
-        "weighted_carry_daily": weighted_carry_daily,
-        "weighted_carry_annual": weighted_carry_annual,
-        "weighted_roll_daily": sum(roll_daily_values) if roll_daily_values else None,
-        "weighted_roll_annual": sum(roll_annual_values) if roll_annual_values else None,
+        "weighted_carry_1m": weighted_carry_1m,
+        "weighted_carry_1y": weighted_carry_1y,
+        "weighted_roll_1m": sum(roll_1m_values) if roll_1m_values else None,
+        "weighted_roll_1y": sum(roll_1y_values) if roll_1y_values else None,
         "positions": position_details,
     }
