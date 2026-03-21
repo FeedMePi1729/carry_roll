@@ -77,15 +77,26 @@ The Vite dev server proxies `/api/*` → `http://localhost:8000`, so the fronten
 
 ### Analytics Engine Summary
 - **Pricing**: dirty price, clean price, accrued interest; supports ACT/360, ACT/365, 30/360
-- **Carry**: coupon income minus repo financing cost (daily/weekly/annual)
-- **Roll-down**: price change from bond rolling down the curve (90-day and 365-day)
-- **Spreads**: Z-spread (constant spread to bootstrapped zero curve, calibrated via Brent's method to reproduce observed price)
-- **Credit**: hazard rate and survival probability from Z-spread
-- **Interpolation**: cubic spline on the treasury curve
-- **P&L Decomposition**: exact bond P&L decomposition with two mutually exclusive modes:
-  - **Z-Spread Mode** (4 components): carry, pull-to-par, roll-down, spread change. Prices off bootstrapped zero curve + Z-spread (calibrated to market price). Roll-down spread: `z_rd = z_t + (zero(T-dt) - zero(T))`.
-  - **Yield Mode** (4 components): carry, pull-to-par, roll-down (par curve), yield change. Prices at flat YTM.
-  - Both modes use full repricing (no duration/convexity approximations) and return exact identities with a residual sanity check.
-  - Users can override the new Z-spread or YTM to see scenario P&L, and view time evolution across multiple horizons (1d–1y).
-  - Frontend shows intermediate prices (P₀, P_ptp, P_rd, P₂) in a "Show Working" section so users can trace the math.
-  - Methodology tab (`components/docs/DecompositionDocs.tsx`) documents the math for both modes.
+- **Carry**: accrual-based coupon income minus repo financing cost (smooth, not lumpy); shown daily/weekly/annually on the bond card
+- **Roll-down**: price change from bond rolling down the issuer Z-spread curve (not the treasury par curve) at each horizon
+- **Spreads**: Z-spread (constant spread to bootstrapped zero curve, calibrated via Brent's method to reproduce observed dirty price). Formula: `dirty_price = Σ CF_i · exp(-(z_i + Z) · τ_i)`
+- **Issuer Z-Spread Curve**: built from all bonds sharing a ticker in a two-pass process — Pass 1 computes per-bond Z-spreads independently; Pass 2 assembles `[(maturity_yrs, z_spread_decimal)]` pairs and fits a cubic spline. This curve is used for roll-down in both bond analytics and curve-level decompositions.
+- **Interpolation**: cubic spline on both the treasury yield curve and the issuer Z-spread curve
+- **P&L Decomposition**: exact bond P&L decomposition with two mutually exclusive modes (full repricing, no duration/convexity approximations):
+
+  #### Z-Spread Mode (default for credit bonds)
+  Prices off bootstrapped zero curve + Z-spread. Four components that sum exactly to total P&L:
+  1. **Carry** = `coupon_income − financing_cost` (accrual-based; matches bond card carry)
+  2. **Pull-to-Par** = `(P_ptp − P₀) + CF − coupon_income` (pure price convergence to par, CF-adjusted)
+  3. **Roll-Down** = `P_rd − P_ptp` where `z_rd = z_t + (zero(T−dt) − zero(T))` — benefit from the bond rolling along the issuer Z-spread curve; on an upward-sloping curve `zero(T−dt) < zero(T)` so `z_rd < z_t` and price rises
+  4. **Spread Change** = `P₂ − P_rd` (pure credit repricing; default = 0, can be overridden for scenarios)
+
+  Intermediate prices surfaced in "Show Working": `P₀` (current), `P_ptp` (aged, same spread), `P_rd` (aged, rolled spread), `P₂` (aged, final spread).
+
+  #### Yield Mode
+  Prices at flat YTM (semi-annual compounding). Same Carry and Pull-to-Par definitions; Roll-Down uses the par treasury curve (`y_rd = treasury_at_new_mat + bond_excess`); Spread Change replaced by **Yield Change**.
+
+  - Identity check: `residual = total − (P₂ − P₀ + CF − financing_cost)` ≈ 0
+  - Users can override the final Z-spread or YTM for what-if scenarios
+  - Multiple horizons supported: 1d, 30d, 365d, etc.
+  - Methodology tab (`components/docs/DecompositionDocs.tsx`) documents the math for both modes
